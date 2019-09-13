@@ -1,0 +1,22 @@
+# docker-compose file
+version: '3'
+services:
+  backend:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    links:
+      - mongodb
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+
+  mongodb:
+    image: "mongo"
+    ports:
+     - "27017:27017"
+    volumes:
+      - ../jarvisdbdata:/data/db
+

@@ -1,0 +1,67 @@
+node {
+    try{
+        def apiImage
+        def branchName
+        stage('Build') {
+            def scmVars = checkout scm
+            branchName = scmVars.GIT_BRANCH
+            sh "echo ${branchName}"
+            if(branchName == 'origin/develop') {
+                apiImage = docker.build("ccnoc/ccss:jarvis-${BUILD_NUMBER}", "-f Dockerfile .")
+            }
+        }
+        stage('Publish') {
+            docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
+                apiImage.push();
+            }
+        }
+        stage('Stopping & remove Old Image'){
+            if(branchName == 'origin/develop') {
+                sshagent(['DockerDevServer']) {
+                    sh 'ssh -o StrictHostKeyChecking=no devops@193.70.111.116 docker stop jarvis-dev || true'
+                    sh 'ssh -o StrictHostKeyChecking=no devops@193.70.111.116 docker rm jarvis-dev || true'
+                }
+            }
+        }
+        stage('Deploy Container on Dev') {
+            if(branchName == 'origin/develop') {
+                docker.withRegistry('https://registry.hub.docker.com', 'dockerhub'){
+                    def dockerRun = 'docker run -p 3000:3000 -d --mount source=jarvis --name jarvis-dev --env-file /opt/env/jarvis-dev.conf ccnoc/ccss:jarvis-${BUILD_NUMBER}'
+                    sshagent(['DockerDevServer']) {
+                        sh "ssh -o StrictHostKeyChecking=no devops@193.70.111.116 ${dockerRun}"
+                    }
+                }
+            }
+        }
+
+        stage("BUILD SUCCEED") {
+            sh "echo CICD Done"
+        }
+        stage('Removing Image') {
+            sh "docker rmi ccnoc/ccss:jarvis-${BUILD_NUMBER} | true"
+        }
+        stage('Docker Purge') {
+          sh "docker image prune -fa"
+        }
+    } catch(e) {
+        currentBuild.result = "FAILED"
+    } finally {
+       notifyBuild(currentBuild.result)
+    }
+}
+def notifyBuild(String buildStatus = 'SUCCESS') {
+  // build status of null means successful
+  buildStatus = buildStatus ?: 'SUCCESS'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+  def details = """<p>${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+    <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>"""
+  if(buildStatus != 'STARTED'){
+  emailext (
+      subject: subject,
+      body: details,
+      recipientProviders: [[$class: 'CulpritsRecipientProvider']],
+      to: 'ssqasim@csquareonline.com,ahabib@csquareonline.com,baamir@csquareonline.com, dilawar@creativechaos.co'
+    )
+ }
+}
