@@ -1,14 +1,14 @@
 const slackBot = require('slackbots');
 const dotenv = require('dotenv').config();
 const ProjectController = require('./controllers/project.controller');
+const mongoose = require('mongoose');
 
-const slack_bot_token = process.env.SLACK_BOT_TOKEN;
-const slack_user_token = process.env.SLACK_USER_TOKEN;
-const slack_bot_name = process.env.SLACK_BOT_NAME;
+mongoose.Promise = global.Promise;
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true });
 
 const bot = new slackBot({
-    token: 'xoxb-750800828806-748602685536-ny6NhbwDhH1ILpqLVMUvgQ7R',
-    name: 'jarvis'
+    token: process.env.SLACK_BOT_TOKEN,
+    name: process.env.SLACK_BOT_NAME
 });
 
 
