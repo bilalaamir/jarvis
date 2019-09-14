@@ -26,7 +26,7 @@ node {
         stage('Deploy Container on Dev') {
             if(branchName == 'origin/feature_docker') {
                 docker.withRegistry('https://registry.hub.docker.com', 'dockerhub'){
-                    def dockerRun = 'docker run -p 4000:4000 -d --mount source=jarvis --name jarvis-dev --env-file /opt/env/jarvis-dev.conf ccnoc/ccss:jarvis-${BUILD_NUMBER}'
+                    def dockerRun = 'docker run -p 4000:4000 -d --name jarvis-dev --env-file /opt/env/jarvis-dev.conf ccnoc/ccss:jarvis-${BUILD_NUMBER}'
                     sshagent(['DockerDevServer']) {
                         sh "ssh -o StrictHostKeyChecking=no devops@193.70.111.116 ${dockerRun}"
                     }
