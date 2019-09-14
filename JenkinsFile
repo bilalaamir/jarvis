@@ -61,7 +61,7 @@ def notifyBuild(String buildStatus = 'SUCCESS') {
       subject: subject,
       body: details,
       recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-      to: 'ssqasim@csquareonline.com,ahabib@csquareonline.com,baamir@csquareonline.com,dilawar@creativechaos.co,noc-laert@csquareonline.com'
+      to: 'ssqasim@csquareonline.com,ahabib@csquareonline.com,baamir@csquareonline.com,dilawar@creativechaos.co,noc-alert@csquareonline.com'
     )
  }
 }
