@@ -1,15 +1,11 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const userSchemaStructure = require('../config/userSchemaStructure');
 
 const userSchema = new Schema({
-    slack: {
-        id: { type: String },
-        email: { type: String, lowercase: true }
-    },
-    jira: {
-        id: { type: String },
-        email: { type: String, lowercase: true }
-    },
+    slack: userSchemaStructure.slack,
+    jira: userSchemaStructure.jira,
+
     google_drive: {
         email: { type: String, lowercase: true },
         password: { type: String },
@@ -17,8 +13,7 @@ const userSchema = new Schema({
     },
     user_status: {
         type: String,
-        enum: ['pending', 'active', 'deactive'],
-        default: 'pending'
+        default: 'active'
     },
     email: { type: String },
 

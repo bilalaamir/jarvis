@@ -3,11 +3,17 @@ const Schema = mongoose.Schema;
 
 const projectSchema = new Schema({
 
-    projectName: {type: String},
-    status: {type: String, default: 'pending'},
-    clientSlack: {type: Object,},
-    projectSlack: {type: Object},
-    jira: {type: Object},
+    project_name: {type: String, unique: true},
+    status: {type: String, default: 'active'},
+    client_slack_channel: {type: Object,},
+    project_slack_channel: {type: Object},
+    jira_details: {type: Object},
+    start_date: {type: Date},
+    archived_date: {type: Date},
+    allocations: [{
+        type: Schema.Types.ObjectId,
+        ref: 'user'
+    }],
 
 }, { timestamps: {} }, {strict: false});
 

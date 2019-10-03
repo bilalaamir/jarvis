@@ -1,24 +1,29 @@
 const slackUserToken = process.env.SLACK_USER_TOKEN;
 const axios = require('axios');
+
 const headers = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${slackUserToken}`
 };
 
+const baseUrl = process.env.SLACK_API_BASE_URL;
+
 module.exports = {
     startChannel(name) {
-        axios.post('https://slack.com/api/channels.create', {name}, {headers})
-        .then(res => res)
+        return axios.post(`${baseUrl}/channels.create`, {name}, {headers})
+            .then(function (response) {
+                return response.data.channel;
+            });
     },
 
-    addUserToChannel(user, channel) {
+    addUserToChannel(userId, channelId) {
         const body = {
-            "user": user,
-            "channel": channel
+            "user": userId,
+            "channel": channelId
         };
 
-        axios.post('https://slack.com/api/channels.invite', body, {headers})
-            .then(res => res)
+        return axios.post(`${baseUrl}/channels.invite`, body, {headers})
+            .then(res => res.data)
     },
 
     removeUserFromChannel(user, channel) {
@@ -27,8 +32,15 @@ module.exports = {
             "channel": channel
         };
 
-        axios.post('https://slack.com/api/channels.kick', body, {headers})
-            .then(res => res)
+        return axios.post(`${baseUrl}/channels.kick`, body, {headers})
+            .then(res => res.data)
+    },
+
+    findUser(userId) {
+         return axios.get(`${baseUrl}/users.info?user=${userId.toUpperCase()}`,{headers})
+            .then(function (response) {
+                return response.data.user;
+            });
     },
 
 };

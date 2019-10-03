@@ -1,6 +1,6 @@
 const slackBot = require('slackbots');
 const dotenv = require('dotenv').config();
-const ProjectController = require('./controllers/project.controller');
+const ConversationHelper = require('./helpers/conversation.helper');
 const mongoose = require('mongoose');
 
 mongoose.Promise = global.Promise;
@@ -12,7 +12,7 @@ const bot = new slackBot({
 });
 
 
-// Start Handler
+// Wake Up Jarvis
 bot.on('start', () => {
 
     bot.postMessageToChannel(
@@ -21,35 +21,21 @@ bot.on('start', () => {
         // params
     );
 
-// Error Handler
-bot.on('error', (err) => console.log(err));
+    // Message Handler
+    bot.on('message', (data) => {
 
-// Message Handler
-bot.on('message', (data) => {
-    if(data.type !== 'message'){
-        return;
-    }
-    console.log('Message', data);
-    handleMessage(data.text.toLowerCase());
-});
+        if(data.type !== 'message' || !data.user){
+            return;
+        }
 
-
-// Response to Data
-function handleMessage(message) {
-    if(message.includes('start project')) {
-        startProject(message);
-    }
-}
-
-function startProject(message) {
-    const projectName = message.split('start project ')[1];
-    ProjectController.startProject(projectName).then(resp => {
-        bot.postMessageToChannel(
-            'general',
-            `Congratulations! ${projectName} has been successfully setup`
-        )
+        return ConversationHelper.conversationMaster(data.text.toLowerCase(), data.user).then(response => {
+            bot.postMessageToChannel(
+                response.channel,
+                response.message
+            )
+        });
     });
-}
 
-
+    // Troubleshoot Jarvis
+    // bot.on('error', (err) => console.log(err));
 });

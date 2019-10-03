@@ -16,6 +16,8 @@ const headers = {
     'Authorization': `Basic ${jiraApiToken}`
 };
 
+const baseUrl = process.env.JIRA_API_BASE_URL;
+
 module.exports = {
     createProject(name) {
         let body = {
@@ -27,7 +29,39 @@ module.exports = {
             "leadAccountId": "5ac8a5247b9e190395841376"
         };
 
-        axios.post('https://jarvisbot.atlassian.net/rest/api/3/project', body, {headers})
-            .then(res => res)
-    }
+        return axios.post(`${baseUrl}/rest/api/3/project`, body, {headers})
+            .then(function (response) {
+                return response.data;
+            });
+    },
+
+    findUser(userEmail) {
+        return axios.get(`${baseUrl}/rest/api/2/user/search?username=${userEmail}`,{headers})
+            .then(res => res.data[0])
+    },
+
+    addUserToProject(jiraProjectId, associateRole, userKey) {
+        let body = {
+          "user": [userKey]
+        };
+        console.log('TEST', body);
+        return axios.post(`${baseUrl}/rest/api/3/project/${jiraProjectId}/role/${associateRole}`, body ,{headers})
+            .then(function (response) {
+                return response.data;
+            });
+    },
+
+    getProjectRoleId(jiraProjectId, role) {
+        return axios.get(`${baseUrl}/rest/api/3/project/${jiraProjectId}/role` ,{headers})
+            .then(function (response) {
+                return response.data[role].split(`${baseUrl}/rest/api/3/project/${jiraProjectId}/role/`)[1];
+            });
+    },
+
+    removeUserFromProject(jiraProjectId, associateRole, userId) {
+        return axios.delete(`${baseUrl}/rest/api/3/project/${jiraProjectId}/role/${associateRole}?user=${userId}` ,{headers})
+            .then(function (response) {
+                return response
+            });
+    },
 };
