@@ -17,6 +17,7 @@ const headers = {
 };
 
 const baseUrl = process.env.JIRA_API_BASE_URL;
+const leadAccountID = process.env.JIRA_LEAD_ACCOUNT_ID;
 
 module.exports = {
     createProject(name) {
@@ -26,7 +27,7 @@ module.exports = {
             "projectTypeKey": "software",
             "projectTemplateKey": "com.pyxis.greenhopper.jira:gh-simplified-agility-kanban",
             "description": "testing api",
-            "leadAccountId": "5ac8a5247b9e190395841376"
+            "leadAccountId": leadAccountID
         };
 
         return axios.post(`${baseUrl}/rest/api/3/project`, body, {headers})
