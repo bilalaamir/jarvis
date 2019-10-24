@@ -1,13 +1,34 @@
 const slackService = require('../services/slack.service');
 const jiraService = require('../services/jira.service');
+const driveService = require('../services/drive.service');
 const Project = require('../models/project.model');
+
+async function createDriveFolder(name) {
+    let folder = await driveService.createFolder(name);
+    let permissions = [
+        {
+            'type': 'user',
+            'role': 'writer',
+            'emailAddress': 'faryalzuberi12@gmail.com'
+        }, {
+            'type': 'domain',
+            'role': 'writer',
+            'domain': 'example.com'
+        }
+    ];
+    return await driveService.setPermissions(permissions, folder.id)
+        .then( res => { return folder.id })
+        .catch( err => { console.log(err) } );
+
+}
 
 module.exports = {
 
     startProject: async(projectName, currentUser) => {
-        const projectChannel = await slackService.startChannel(`proj-${projectName}`);
-        const clientChannel = await slackService.startChannel(`client-${projectName}`);
-        const jiraDetails = await jiraService.createProject(projectName);
+        const projectChannel = await slackService.startChannel(`proj-${projectName}`).catch(err => { console.log('could not create project channel', err) });
+        const clientChannel = await slackService.startChannel(`client-${projectName}`).catch(err => { console.log('could not create client channel', err) });
+        const jiraDetails = await jiraService.createProject(projectName).catch(err => { console.log('could not create JIRA project', err) });
+        const googleDrive = await createDriveFolder(projectName).catch(err => { console.log('could not create drive', err) });
 
         let project = {
             project_name: projectName,
@@ -15,6 +36,7 @@ module.exports = {
             client_slack_channel: clientChannel,
             project_slack_channel: projectChannel,
             jira_details: jiraDetails,
+            google_drive_id: googleDrive,
             start_date: Date.now()
         };
         const newProject = new Project(project);
@@ -52,4 +74,6 @@ module.exports = {
         if (allocationIndex !== -1) project.allocations.splice(allocationIndex, 1);
         await project.save();
     },
+
+    createDriveFolder
 };
