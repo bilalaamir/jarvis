@@ -7,6 +7,7 @@ const projectSchema = new Schema({
     status: {type: String, default: 'active'},
     client_slack_channel: {type: Object,},
     project_slack_channel: {type: Object},
+    google_drive_id: {type: String, unique: true},
     jira_details: {type: Object},
     start_date: {type: Date},
     archived_date: {type: Date},
