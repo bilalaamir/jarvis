@@ -58,6 +58,26 @@ module.exports = {
         // TODO: MAKE THIS ELSE A SEPARATE FUNCTION
         else {
             // Command: Start Project
+            if(message.includes('create drive ')) {
+                const driveName = message.split('create drive ')[1];
+                    const response = await ProjectController.createDriveFolder(driveName)
+                        .then(res => { return res })
+                        .catch(error => { console.log('err', error) });
+                    let conversation = {
+                        user: currentUser,
+                        status: 'inactive',
+                        command: 'Create Drive',
+                        tasks_done: ['create_drive'],
+                        next_task: 'nothing',
+                        project_name: driveName
+                    };
+
+                await ConversationController.startConversation(conversation);
+                return {
+                    channel: 'general',
+                    message: response
+                }
+            }
             if(message.includes('start project')) {
                 const projectName = message.split('start project ')[1];
                 const project = await ProjectController.startProject(projectName, currentUser);
