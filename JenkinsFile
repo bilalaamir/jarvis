@@ -6,7 +6,7 @@ node {
             def scmVars = checkout scm
             branchName = scmVars.GIT_BRANCH
             sh "echo ${branchName}"
-            if(branchName == 'origin/feature_docker') {
+            if(branchName == 'origin/develop') {
                 apiImage = docker.build("ccnoc/ccss:jarvis-${BUILD_NUMBER}", "-f Dockerfile .")
             }
         }
@@ -16,7 +16,7 @@ node {
             }
         }
         stage('Stopping & remove Old Image'){
-            if(branchName == 'origin/feature_docker') {
+            if(branchName == 'origin/develop') {
                 sshagent(['DockerDevServer']) {
                     sh 'ssh -o StrictHostKeyChecking=no devops@193.70.111.116 docker stop jarvis-dev || true'
                     sh 'ssh -o StrictHostKeyChecking=no devops@193.70.111.116 docker rm jarvis-dev || true'
@@ -24,7 +24,7 @@ node {
             }
         }
         stage('Deploy Container on Dev') {
-            if(branchName == 'origin/feature_docker') {
+            if(branchName == 'origin/develop') {
                 docker.withRegistry('https://registry.hub.docker.com', 'dockerhub'){
                     def dockerRun = 'docker run -p 4000:3000 -d --name jarvis-dev --env-file /opt/env/jarvis-dev.conf ccnoc/ccss:jarvis-${BUILD_NUMBER}'
                     sshagent(['DockerDevServer']) {
