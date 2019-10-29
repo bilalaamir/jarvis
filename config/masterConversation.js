@@ -89,6 +89,31 @@ module.exports = {
             "total_tasks": 1
         },
 
+        {
+            "command": "Archive project",
+            "tasks": [
+                {
+                    "id": 1,
+                    "task": "identify_project",
+                    "conversation" : {
+                        "user": "Archive project",
+                        "bot": "What is the Project End Date? Please enter date in mm/dd/yyyy format",
+                        "error": "Project doesn’t exist"
+                    }
+                },
+                {
+                    "id": 2,
+                    "task": "archive_project",
+                    "conversation" : {
+                        "user": "10/04/2005",
+                        "bot": "end date has been set as",
+                        "error": "Invalid Date"
+                    }
+                }
+            ],
+            "total_tasks": 2
+        },
+
     ]
 
 };

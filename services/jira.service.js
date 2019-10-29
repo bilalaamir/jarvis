@@ -65,4 +65,11 @@ module.exports = {
                 return response
             });
     },
+
+    updateProject(jiraProjectId, body) {
+        return axios.put(`${baseUrl}/rest/api/3/project/${jiraProjectId}`, body ,{headers})
+            .then(function (response) {
+                return response.data
+            });
+    },
 };

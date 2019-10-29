@@ -10,6 +10,7 @@ const projectSchema = new Schema({
     google_drive_id: {type: String, unique: true},
     jira_details: {type: Object},
     start_date: {type: Date},
+    end_date: {type: String},
     archived_date: {type: Date},
     allocations: [{
         type: Schema.Types.ObjectId,

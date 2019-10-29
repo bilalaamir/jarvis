@@ -75,5 +75,19 @@ module.exports = {
         await project.save();
     },
 
+    archiveProject: async(projectId, projectEndDate) => {
+        let project = await Project.findById(projectId);
+        await slackService.archiveChannel(project.client_slack_channel.id);
+        await slackService.archiveChannel(project.project_slack_channel.id);
+        await jiraService.updateProject(project.jira_details.id, {name: `${project.project_name}-archived`});
+
+        project.status = 'archived';
+        project.project_name = `${project.project_name}-archived`;
+        project.client_slack_channel.is_archived = true;
+        project.project_slack_channel.is_archived = true;
+        project.end_date = projectEndDate;
+        await project.save();
+    },
+
     createDriveFolder
 };
