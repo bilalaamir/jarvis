@@ -96,7 +96,33 @@ module.exports = {
                     message: response
                 }
             }
-
+            // if(message.includes('archive project ')) {
+            //     const projectName = message.split('archive project ')[1];
+            //     const project = await ProjectController.findProject(projectName);
+            //     if(!project){
+            //         return {
+            //             channel: 'general',
+            //             message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
+            //         }
+            //     }
+            //     const response = await ProjectController.archiveProject(project)
+            //         .then(res => { return res })
+            //         .catch(error => { console.log('err', error) });
+            //     let conversation = {
+            //         user: currentUser,
+            //         status: 'inactive',
+            //         command: 'Archive Project',
+            //         tasks_done: ['archive_project'],
+            //         next_task: 'nothing',
+            //         project_name: projectName
+            //     };
+            //
+            //     await ConversationController.startConversation(conversation);
+            //     return {
+            //         channel: 'general',
+            //         message: response
+            //     }
+            // }
             // Command: Start Project
             if(message.includes('start project')) {
                 const projectName = message.split('start project ')[1];

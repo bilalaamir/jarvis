@@ -3,21 +3,19 @@ const jiraService = require('../services/jira.service');
 const driveService = require('../services/drive.service');
 const Project = require('../models/project.model');
 
-async function createDriveFolder(name) {
-    let folder = await driveService.createFolder(name);
+async function createDriveFolder(name, user) {
+    let teamDrive = await driveService.createFolder(name).then(res => {  return res }).catch(err => { return err });
     let permissions = [
         {
             'type': 'user',
             'role': 'writer',
-            'emailAddress': 'faryalzuberi12@gmail.com'
-        }, {
-            'type': 'domain',
-            'role': 'writer',
-            'domain': 'example.com'
+            'emailAddress': user.email,
+            'user': user.id
+
         }
     ];
-    return await driveService.setPermissions(permissions, folder.id)
-        .then( res => { return folder.id })
+    return await driveService.setPermissions(permissions, teamDrive.id)
+        .then( res => { console.log('permission', res); return teamDrive = { ...teamDrive, permissions: res } })
         .catch( err => { console.log(err) } );
 
 }
@@ -28,18 +26,16 @@ module.exports = {
         const projectChannel = await slackService.startChannel(`proj-${projectName}`).catch(err => { console.log('could not create project channel', err) });
         const clientChannel = await slackService.startChannel(`client-${projectName}`).catch(err => { console.log('could not create client channel', err) });
         const jiraDetails = await jiraService.createProject(projectName).catch(err => { console.log('could not create JIRA project', err) });
-        const googleDrive = await createDriveFolder(projectName).catch(err => { console.log('could not create drive', err) });
-
-        let project = {
+        const googleDrive = await createDriveFolder(projectName, currentUser).catch(err => { console.log('could not create drive', err) });
+        const newProject = new Project({
             project_name: projectName,
             user_id: currentUser.id,
             client_slack_channel: clientChannel,
             project_slack_channel: projectChannel,
             jira_details: jiraDetails,
-            google_drive_id: googleDrive,
+            google_drive: googleDrive,
             start_date: Date.now()
-        };
-        const newProject = new Project(project);
+        });
         await newProject.save();
         return newProject;
     },
@@ -55,7 +51,19 @@ module.exports = {
         await slackService.addUserToChannel(associate.slack.id, project.project_slack_channel.id);
         const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, associateRole);
         await jiraService.addUserToProject(project.jira_details.id, projectRole, associate.jira.key);
+        let permissions = [
+            {
+                'type': 'user',
+                'role': 'writer',
+                'emailAddress': associate.email,
+                'user': associate.id,
+            }
+        ];
+        let googleDrive = await driveService.setPermissions(permissions, project.google_drive.id)
+            .then( res => { console.log('set drive permissions response: ', res) })
+            .catch( err => { console.log(err) } );
         project.allocations.push(associate);
+        project.google_drive.permissions = Object.assign(project.google_drive.permissions, googleDrive);
         await project.save();
     },
 
@@ -70,6 +78,7 @@ module.exports = {
         await slackService.removeUserFromChannel(associate.slack.id, project.project_slack_channel.id);
         const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, 'Member');
         await jiraService.removeUserFromProject(project.jira_details.id, projectRole, associate.jira.accountId);
+        await driveService.removePermission(project.google_drive.permissions[associate.id].id, project.google_drive.id);
         let allocationIndex = project.allocations.indexOf(associate);
         if (allocationIndex !== -1) project.allocations.splice(allocationIndex, 1);
         await project.save();
@@ -88,6 +97,5 @@ module.exports = {
         project.end_date = projectEndDate;
         await project.save();
     },
-
     createDriveFolder
 };
