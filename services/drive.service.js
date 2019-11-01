@@ -25,7 +25,7 @@ module.exports = {
     createFolder: async(name) => {
     let fileMetadata = {
         'name': name,
-        'mimeType': 'application/vnd.google-apps.folder'
+        'mimeType': 'application/vnd.google-apps.folder',
     };
     let drive = await getDrive();
     return await drive.files.create({
@@ -40,10 +40,11 @@ module.exports = {
     },
     createDrive: async(name) => {
         let driveMetadata = {
-            'name': name
+            'name': name,
         };
         let requestId = uuid.v4();
         let drive = await getDrive();
+
         return await drive.drives.create({
                 resource: driveMetadata,
                 requestId: requestId,
@@ -55,29 +56,97 @@ module.exports = {
     },
     setPermissions: async(permissions, fileID) => {
         let drive = await getDrive();
-        await async.eachSeries(permissions, function (permission, permissionCallback) {
-        drive.permissions.create({
-            resource: permission,
+        return permissions.reduce(async (acc, permission) => {
+            let user = permission.user;
+                delete permission.user;
+            let res = await drive.permissions.create({
+                resource: permission,
+                fileId: fileID,
+                sendNotificationEmails: false,
+                fields: '*',
+            });
+            acc[user] = res.data;
+            return acc;
+        }, {})
+    },
+    removePermission: async(permissionId, fileID) => {
+        let drive = await getDrive();
+        console.log('permission id', permissionId);
+        return await drive.permissions.delete({
+            permissionId: permissionId,
             fileId: fileID,
-            fields: 'id',
-        }, function (err, res) {
-            if (err) {
-                // Handle error...
-                console.error(err);
-                permissionCallback(err);
-            } else {
-                console.log('Permission ID: ', res)
-                permissionCallback();
-            }
+            sendNotificationEmails: false,
+            fields: '*',
+        }).then((res => {
+            console.log('res', res.data);
+            return res.data;
+        })).catch(err => {
+            //TODO create and throw a generic error handler
+            console.log('error', err);
         });
-    }, function (err) {
-        if (err) {
-            // Handle error
-            console.error(err);
-        } else {
-            // All permissions inserted
-            return 'Permissions successfully inserted'
-        }
-    });
-    }
+    },
+    archiveProject: async(fileID) => {
+        let drive = await getDrive();
+        let body = {'title': 'copied file',
+            'parents': [ {'id': '1KgQZJQ1iLKTBzELZfx736vAIsCSrtyih'} ]
+        };
+        return await drive.files.get({
+            fileId: fileID
+        }).then((file => {
+            console.log('file', file.data);
+            return file.data;
+        })).catch(err => {
+            //TODO create and throw a generic error handler
+            console.log('error', err);
+        });
+
+    },
+    getProject: async(fileID) => {
+        let drive = await getDrive();
+        return await drive.files.get({
+            fileId: fileID
+        }).then((file => {
+            console.log('file', file.data);
+            return file.data;
+        })).catch(err => {
+            //TODO create and throw a generic error handler
+            console.log('error', err);
+        });
+
+    },
+    retrieveAllFilesInFolder: async(folderId, callback) => {
+            let drive = await getDrive();
+            let pageToken = null;
+            // Using the NPM module 'async'
+            await async.doWhilst(function (callback) {
+                drive.files.list({
+                    q: "mimeType='application/vnd.google-apps.folder'",
+                    fields: 'nextPageToken, files(id, name)',
+                    spaces: 'drive',
+                    pageToken: pageToken
+                }, function (err, res) {
+                    if (err) {
+                        // Handle error
+                        console.error(err);
+                        callback(err)
+                    } else {
+                        console.log(res);
+                        res.data.files.forEach(function (file) {
+                            console.log('Found file: ', file.name, file.id);
+                        });
+                        pageToken = res.nextPageToken;
+                        callback();
+                    }
+                });
+            }, function () {
+                return !!pageToken;
+            }, function (err) {
+                if (err) {
+                    // Handle error
+                    console.error(err);
+                } else {
+                    // All pages fetched
+                }
+            })
+    },
 };

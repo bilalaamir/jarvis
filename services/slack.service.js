@@ -43,4 +43,14 @@ module.exports = {
             });
     },
 
+    archiveChannel(channel) {
+        const body = {
+            "channel": channel
+        };
+        return axios.post(`${baseUrl}/groups.archive`, body,{headers})
+            .then(function (response) {
+                return response.data;
+            });
+    },
+
 };
