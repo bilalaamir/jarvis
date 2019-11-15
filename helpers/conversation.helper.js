@@ -1,11 +1,13 @@
 const ConversationController = require('../controllers/conversation.controller');
 const ProjectController = require('../controllers/project.controller');
 const UserController = require('../controllers/user.controller');
+const { ASSOCIATE_ROLES } = require('../includes/constants');
 let currentUser;
 module.exports = {
 
-    conversationMaster: async (message, slackUserId) => {
+    conversationMaster: async (message, slackUserId, channel) => {
         currentUser = await UserController.findOrCreateUser(slackUserId);
+
         let activeConversation = await ConversationController.getActiveConversation(currentUser);
 
         if(activeConversation){
@@ -16,14 +18,15 @@ module.exports = {
                 const associate = await UserController.findOrCreateUser(associateId);
                 activeConversation = await activeConversation.populate('projects');
 
-                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member');
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Administrator', ASSOCIATE_ROLES.TEAM_MEMBER);
+
                 activeConversation.status = 'inactive';
                 activeConversation.tasks_done.push('add_associate');
                 activeConversation.next_task = 'nothing';
                 await activeConversation.save();
 
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: `${associate.slack.profile.real_name} has been added on ${activeConversation.project_name}`
                 }
             }
@@ -41,7 +44,7 @@ module.exports = {
                 await activeConversation.save();
 
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: `${associate.slack.profile.real_name} has been removed from ${activeConversation.project_name}`
                 }
             }
@@ -49,7 +52,6 @@ module.exports = {
             // Command: Archive Project (task-2)
             if(activeConversation.next_task === 'archive_project' && /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/.test(message)) {
                 let projectEndDate = message;
-                console.log('You are heree', projectEndDate);
                 activeConversation = await activeConversation.populate('projects');
 
                 await ProjectController.archiveProject(activeConversation.project, projectEndDate);
@@ -60,14 +62,104 @@ module.exports = {
                 await activeConversation.save();
 
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: `${activeConversation.project_name} has been archived with ${projectEndDate} as project end date.`
+                }
+            }
+
+            if(message.includes('close all active conversations')) {
+                activeConversation = await activeConversation.populate('projects');
+                activeConversation.status = 'inactive';
+                activeConversation.forced_close = true;
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `Okay, ${currentUser.slack.profile.real_name} I have closed all active conversations.`
+                }
+            }
+            if(activeConversation.next_task === 'ask_project_owner') {
+                activeConversation.tasks_done.push('ask_project_owner');
+                activeConversation.next_task = 'set_project_owner';
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `Who is the Project Owner?`
+                }
+            }
+
+            if(activeConversation.next_task === 'set_project_owner' && /<@(.*?)>/.test(message)) {
+                const associateId = message.slice(2, -1).toUpperCase();
+                const associate = await UserController.findOrCreateUser(associateId);
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.PROJECT_OWNER );
+
+                activeConversation.tasks_done.push('set_project_owner');
+                activeConversation.next_task = 'ask_team_manager';
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `${associate.slack.real_name} is now the project owner!`
+                }
+            }
+
+            if(activeConversation.next_task === 'ask_team_manager') {
+                activeConversation.tasks_done.push('ask_team_manager');
+                activeConversation.next_task = 'set_team_manager';
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `Who is the Team Manager?`
+                }
+            }
+
+            if(activeConversation.next_task === 'set_team_manager' && /<@(.*?)>/.test(message)) {
+                const associateId = message.slice(2, -1).toUpperCase();
+                const associate = await UserController.findOrCreateUser(associateId);
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.TEAM_MEMBER );
+
+                activeConversation.tasks_done.push('set_team_manager');
+                activeConversation.next_task = 'ask_start_date';
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `${associate.slack.real_name} is now the Team Manager!`
+                }
+            }
+
+            if(activeConversation.next_task === 'ask_start_date') {
+                activeConversation.tasks_done.push('ask_start_date');
+                activeConversation.next_task = 'set_start_date';
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `What is the Project Start Date? Please enter date in mm/dd/yyyy format.`
+                }
+            }
+
+            if(activeConversation.next_task === 'set_start_date' && /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/.test(message)) {
+                let projectStartDate = message;
+                let dateArray = message.split("/");
+                projectStartDate = new Date(dateArray[2], dateArray[0] -1 , dateArray[1]);
+                await ProjectController.setStartDate(activeConversation.project, projectStartDate);
+                activeConversation.status = 'inactive';
+                activeConversation.tasks_done.push('set_start_date');
+                activeConversation.next_task = 'nothing';
+                await activeConversation.save();
+
+                return {
+                    channel: currentUser.slack.name,
+                    message: `${activeConversation.project_name} will begin on ${projectStartDate}.`
                 }
             }
 
             else{
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: `${currentUser.slack.profile.real_name} you have an active conversation going on!`
                 }
             }
@@ -78,68 +170,42 @@ module.exports = {
             // Command: Create Drive
             if(message.includes('create drive ')) {
                 const driveName = message.split('create drive ')[1];
-                    const response = await ProjectController.createDriveFolder(driveName)
-                        .then(res => { return res })
-                        .catch(error => { console.log('err', error) });
-                    let conversation = {
-                        user: currentUser,
-                        status: 'inactive',
-                        command: 'Create Drive',
-                        tasks_done: ['create_drive'],
-                        next_task: 'nothing',
-                        project_name: driveName
-                    };
+                const response = await ProjectController.createDriveFolder(driveName)
+                    .then(res => { return res })
+                    .catch(error => { console.log('err', error) });
+                let conversation = {
+                    user: currentUser,
+                    status: 'inactive',
+                    command: 'Create Drive',
+                    tasks_done: ['create_drive'],
+                    next_task: 'nothing',
+                    project_name: driveName
+                };
 
                 await ConversationController.startConversation(conversation);
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: response
                 }
             }
-            // if(message.includes('archive project ')) {
-            //     const projectName = message.split('archive project ')[1];
-            //     const project = await ProjectController.findProject(projectName);
-            //     if(!project){
-            //         return {
-            //             channel: 'general',
-            //             message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
-            //         }
-            //     }
-            //     const response = await ProjectController.archiveProject(project)
-            //         .then(res => { return res })
-            //         .catch(error => { console.log('err', error) });
-            //     let conversation = {
-            //         user: currentUser,
-            //         status: 'inactive',
-            //         command: 'Archive Project',
-            //         tasks_done: ['archive_project'],
-            //         next_task: 'nothing',
-            //         project_name: projectName
-            //     };
-            //
-            //     await ConversationController.startConversation(conversation);
-            //     return {
-            //         channel: 'general',
-            //         message: response
-            //     }
-            // }
+
             // Command: Start Project
             if(message.includes('start project')) {
                 const projectName = message.split('start project ')[1];
                 const project = await ProjectController.startProject(projectName, currentUser);
                 let conversation = {
                     user: currentUser,
-                    status: 'inactive',
+                    status: 'active',
                     command: 'Start Project',
                     tasks_done: ['start_project'],
-                    next_task: 'nothing',
+                    next_task: 'ask_project_owner',
                     project: project,
                     project_name: projectName
                 };
                 await ConversationController.startConversation(conversation);
                 return {
-                    channel: 'general',
-                    message: `Congratulations! ${projectName} has been successfully setup`
+                    channel: currentUser.slack.name,
+                    message: `Congratulations! ${projectName} has been successfully setup now let's assign people to it.`
                 }
             }
 
@@ -149,7 +215,7 @@ module.exports = {
                 const project = await ProjectController.findProject(projectName);
                 if(!project){
                     return {
-                        channel: 'general',
+                        channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
                     }
                 }
@@ -166,7 +232,7 @@ module.exports = {
 
                 await ConversationController.startConversation(conversation);
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: `${currentUser.slack.profile.real_name} who would you like to add to project ${projectName}?`
                 }
 
@@ -177,7 +243,7 @@ module.exports = {
                 const projects = await ProjectController.getProjects('active');
                 if(projects.length === 0){
                     return {
-                        channel: 'general',
+                        channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? No active projects exist!`
                     }
                 }
@@ -205,7 +271,7 @@ module.exports = {
                 }
 
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: message
                 }
 
@@ -214,10 +280,9 @@ module.exports = {
             // Command: Show Archived Projects
             if(message.includes('show archived projects')) {
                 const projects = await ProjectController.getProjects('archived');
-                console.log('Your are here', projects);
                 if(projects.length === 0){
                     return {
-                        channel: 'general',
+                        channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? There are no archived projects!`
                     }
                 }
@@ -245,7 +310,7 @@ module.exports = {
                 }
 
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: response
                 }
 
@@ -257,7 +322,7 @@ module.exports = {
                 let project = await ProjectController.findProject(projectName);
                 if(!project){
                     return {
-                        channel: 'general',
+                        channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
                     }
                 }
@@ -274,7 +339,7 @@ module.exports = {
 
                 await ConversationController.startConversation(conversation);
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: `${currentUser.slack.profile.real_name} who would you like to remove from project ${projectName}?`
                 }
             }
@@ -285,7 +350,7 @@ module.exports = {
                 let project = await ProjectController.findProject(projectName);
                 if(!project){
                     return {
-                        channel: 'general',
+                        channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
                     }
                 }
@@ -320,19 +385,19 @@ module.exports = {
                 });
 
                 return {
-                    channel: 'general',
+                    channel: currentUser.slack.name,
                     message: response
                 }
 
             }
 
-            // Command: Show Archived Project
+            // Command: Archived Project
             if(message.includes('archive project')) {
                 const projectName = message.split('archive project ')[1];
                 const project = await ProjectController.findProject(projectName);
                 if(!project){
                     return {
-                        channel: 'general',
+                        channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
                     }
                 }
@@ -350,15 +415,18 @@ module.exports = {
                 await ConversationController.startConversation(conversation);
 
                 return {
-                    channel: 'general',
-                    message: `${currentUser.slack.profile.real_name} what is project ${projectName}'s end date? Please enter date in mm-dd-yyyy format.`
+                    channel: currentUser.slack.name,
+                    message: `${currentUser.slack.profile.real_name} what is project ${projectName}'s end date? Please enter date in mm/dd/yyyy format.`
                 }
             }
 
             else{
+                const userName = currentUser.slack.profile.real_name;
+                let response = `Sorry ${userName} I don't understand what you are saying?`;
+                response = message.includes('close all active conversations') ? `${userName} there are no active conversations going on` : response;
                 return {
-                    channel: 'general',
-                    message: `Sorry ${currentUser.slack.profile.real_name} I don't understand what you are saying?`
+                    channel: currentUser.slack.name,
+                    message: response
                 }
             }
 

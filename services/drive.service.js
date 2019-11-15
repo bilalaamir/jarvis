@@ -1,6 +1,7 @@
 const {google} = require('googleapis');
 const uuid = require('uuid');
 const async = require('async');
+const { ASSOCIATE_ROLES } = require('../includes/constants');
 
 const auth = new google.auth.GoogleAuth({
     // Scopes can be specified either as an array or as a single, space-delimited string.
@@ -59,12 +60,16 @@ module.exports = {
         return permissions.reduce(async (acc, permission) => {
             let user = permission.user;
                 delete permission.user;
-            let res = await drive.permissions.create({
+            let params = {
                 resource: permission,
                 fileId: fileID,
                 sendNotificationEmails: false,
                 fields: '*',
-            });
+            };
+            if(permission.role === 'owner') {
+                params = { ...params, transferOwnership: true }; // if the permission is changing owner then flag must be present
+            }
+            let res = await drive.permissions.create(params);
             acc[user] = res.data;
             return acc;
         }, {})
@@ -149,4 +154,14 @@ module.exports = {
                 }
             })
     },
+    getRoleType(role) {
+        switch (role) {
+            case ASSOCIATE_ROLES.PROJECT_OWNER:
+                return 'writer';
+            case ASSOCIATE_ROLES.TEAM_MANAGER:
+                return 'writer';
+            case ASSOCIATE_ROLES.TEAM_MEMBER:
+                return 'reader';
+        }
+    }
 };
