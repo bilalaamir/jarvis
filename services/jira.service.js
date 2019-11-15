@@ -2,7 +2,6 @@ const jiraClient = require('jira-connector');
 const jiraApiToken = process.env.JIRA_API_TOKEN;
 const axios = require('axios');
 
-
 const jira = new jiraClient({
     host: process.env.JIRA_HOST ,
     basic_auth: {
@@ -49,7 +48,8 @@ module.exports = {
         return axios.post(`${baseUrl}/rest/api/3/project/${jiraProjectId}/role/${associateRole}`, body ,{headers})
             .then(function (response) {
                 return response.data;
-            });
+            })
+            .catch(function(err) { console.log('error', err) });
     },
 
     getProjectRoleId(jiraProjectId, role) {
