@@ -76,7 +76,7 @@ module.exports = {
         let project = await Project.findById(projectId);
         await slackService.removeUserFromChannel(associate.slack.id, project.client_slack_channel.id);
         await slackService.removeUserFromChannel(associate.slack.id, project.project_slack_channel.id);
-        const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, 'Member');
+        const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, 'Administrator');
         await jiraService.removeUserFromProject(project.jira_details.id, projectRole, associate.jira.accountId);
         await driveService.removePermission(project.google_drive.permissions[associate.id].id, project.google_drive.id);
         let allocationIndex = project.allocations.indexOf(associate);

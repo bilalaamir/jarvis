@@ -15,12 +15,6 @@ const bot = new slackBot({
 // Wake Up Jarvis
 bot.on('start', () => {
 
-    bot.postMessageToChannel(
-        'general',
-        'I am ready to go Sir!',
-        // params
-    );
-
     // Message Handler
     bot.on('message', (data) => {
 
@@ -28,8 +22,8 @@ bot.on('start', () => {
             return;
         }
 
-        return ConversationHelper.conversationMaster(data.text.toLowerCase(), data.user).then(response => {
-            bot.postMessageToChannel(
+        return ConversationHelper.conversationMaster(data.text.toLowerCase(), data.user, '').then(response => {
+            bot.postTo(
                 response.channel,
                 response.message
             )

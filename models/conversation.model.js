@@ -8,6 +8,7 @@ const conversationSchema = new Schema({
     },
     command: {type: String},
     status: {type: String},
+    forced_close: {type: Boolean, default: false},
     tasks_done: [{type: String}],
     next_task: {type: String},
     project: {
