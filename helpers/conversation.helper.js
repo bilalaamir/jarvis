@@ -144,7 +144,7 @@ module.exports = {
             if(activeConversation.next_task === 'set_start_date' && /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/.test(message)) {
                 let projectStartDate = message;
                 let dateArray = message.split("/");
-                projectStartDate = new Date(dateArray[2], dateArray[0], dateArray[1]);
+                projectStartDate = new Date(dateArray[2], dateArray[0] -1 , dateArray[1]);
                 await ProjectController.setStartDate(activeConversation.project, projectStartDate);
                 activeConversation.status = 'inactive';
                 activeConversation.tasks_done.push('set_start_date');
