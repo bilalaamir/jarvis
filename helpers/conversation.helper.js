@@ -1,6 +1,7 @@
 const ConversationController = require('../controllers/conversation.controller');
 const ProjectController = require('../controllers/project.controller');
 const UserController = require('../controllers/user.controller');
+const { ASSOCIATE_ROLES } = require('../includes/constants');
 let currentUser;
 module.exports = {
 
@@ -16,7 +17,7 @@ module.exports = {
                 const associate = await UserController.findOrCreateUser(associateId);
                 activeConversation = await activeConversation.populate('projects');
 
-                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member');
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.TEAM_MEMBER);
                 activeConversation.status = 'inactive';
                 activeConversation.tasks_done.push('add_associate');
                 activeConversation.next_task = 'nothing';
@@ -65,6 +66,85 @@ module.exports = {
                 }
             }
 
+            if(activeConversation.next_task === 'ask_project_owner') {
+                activeConversation.tasks_done.push('ask_project_owner');
+                activeConversation.next_task = 'set_project_owner';
+                await activeConversation.save();
+
+                return {
+                    channel: 'general',
+                    message: `Who is the Project Owner?`
+                }
+            }
+
+            if(activeConversation.next_task === 'set_project_owner' && /<@(.*?)>/.test(message)) {
+                const associateId = message.slice(2, -1).toUpperCase();
+                const associate = await UserController.findOrCreateUser(associateId);
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.PROJECT_OWNER );
+
+                activeConversation.tasks_done.push('set_project_owner');
+                activeConversation.next_task = 'ask_team_manager';
+                await activeConversation.save();
+
+                return {
+                    channel: 'general',
+                    message: `${associate.slack.real_name} is now the project owner!`
+                }
+            }
+
+            if(activeConversation.next_task === 'ask_team_manager') {
+                activeConversation.tasks_done.push('ask_team_manager');
+                activeConversation.next_task = 'set_team_manager';
+                await activeConversation.save();
+
+                return {
+                    channel: 'general',
+                    message: `Who is the Team Manager?`
+                }
+            }
+
+            if(activeConversation.next_task === 'set_team_manager' && /<@(.*?)>/.test(message)) {
+                const associateId = message.slice(2, -1).toUpperCase();
+                const associate = await UserController.findOrCreateUser(associateId);
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.TEAM_MEMBER );
+
+                activeConversation.tasks_done.push('set_team_manager');
+                activeConversation.next_task = 'ask_start_date';
+                await activeConversation.save();
+
+                return {
+                    channel: 'general',
+                    message: `${associate.slack.real_name} is now the Team Manager!`
+                }
+            }
+
+            if(activeConversation.next_task === 'ask_start_date') {
+                activeConversation.tasks_done.push('ask_start_date');
+                activeConversation.next_task = 'set_start_date';
+                await activeConversation.save();
+
+                return {
+                    channel: 'general',
+                    message: `What is the Project Start Date? Please enter date in mm/dd/yyyy format.`
+                }
+            }
+
+            if(activeConversation.next_task === 'set_start_date' && /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/.test(message)) {
+                let projectStartDate = message;
+                let dateArray = message.split("/");
+                projectStartDate = new Date(dateArray[2], dateArray[0], dateArray[1]);
+                await ProjectController.setStartDate(activeConversation.project, projectStartDate);
+                activeConversation.status = 'inactive';
+                activeConversation.tasks_done.push('set_start_date');
+                activeConversation.next_task = 'nothing';
+                await activeConversation.save();
+
+                return {
+                    channel: 'general',
+                    message: `${activeConversation.project_name} will begin on ${projectStartDate}.`
+                }
+            }
+
             else{
                 return {
                     channel: 'general',
@@ -78,17 +158,17 @@ module.exports = {
             // Command: Create Drive
             if(message.includes('create drive ')) {
                 const driveName = message.split('create drive ')[1];
-                    const response = await ProjectController.createDriveFolder(driveName)
-                        .then(res => { return res })
-                        .catch(error => { console.log('err', error) });
-                    let conversation = {
-                        user: currentUser,
-                        status: 'inactive',
-                        command: 'Create Drive',
-                        tasks_done: ['create_drive'],
-                        next_task: 'nothing',
-                        project_name: driveName
-                    };
+                const response = await ProjectController.createDriveFolder(driveName)
+                    .then(res => { return res })
+                    .catch(error => { console.log('err', error) });
+                let conversation = {
+                    user: currentUser,
+                    status: 'inactive',
+                    command: 'Create Drive',
+                    tasks_done: ['create_drive'],
+                    next_task: 'nothing',
+                    project_name: driveName
+                };
 
                 await ConversationController.startConversation(conversation);
                 return {
@@ -129,17 +209,17 @@ module.exports = {
                 const project = await ProjectController.startProject(projectName, currentUser);
                 let conversation = {
                     user: currentUser,
-                    status: 'inactive',
+                    status: 'active',
                     command: 'Start Project',
                     tasks_done: ['start_project'],
-                    next_task: 'nothing',
+                    next_task: 'ask_project_owner',
                     project: project,
                     project_name: projectName
                 };
                 await ConversationController.startConversation(conversation);
                 return {
                     channel: 'general',
-                    message: `Congratulations! ${projectName} has been successfully setup`
+                    message: `Congratulations! ${projectName} has been successfully setup now let's assign people to it.`
                 }
             }
 

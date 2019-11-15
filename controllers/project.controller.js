@@ -45,25 +45,29 @@ module.exports = {
         return project;
     },
 
-    addAssociateToProject: async(projectId, associate, associateRole) => {
+    addAssociateToProject: async(projectId, associate, associateRole, role) => {
         let project = await Project.findById(projectId);
         await slackService.addUserToChannel(associate.slack.id, project.client_slack_channel.id);
         await slackService.addUserToChannel(associate.slack.id, project.project_slack_channel.id);
         const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, associateRole);
         await jiraService.addUserToProject(project.jira_details.id, projectRole, associate.jira.key);
+        //TODO take out of controller and create object inside service
         let permissions = [
             {
                 'type': 'user',
-                'role': 'writer',
+                'role': driveService.getRoleType(role),
                 'emailAddress': associate.email,
                 'user': associate.id,
             }
         ];
+        let projectPermissions = { ...project.google_drive.permissions };
         let googleDrive = await driveService.setPermissions(permissions, project.google_drive.id)
-            .then( res => { console.log('set drive permissions response: ', res) })
-            .catch( err => { console.log(err) } );
+            .then( res => { console.log( 'set drive permissions response: ', res ); return { ...projectPermissions, ...res } })
+            .catch( err => { console.log( 'set drive permissions error: ', err ) } );
         project.allocations.push(associate);
         project.google_drive.permissions = Object.assign(project.google_drive.permissions, googleDrive);
+        console.log('project drive permissions', Object.assign(project.google_drive.permissions, googleDrive));
+        project.markModified('google_drive');
         await project.save();
     },
 
@@ -76,11 +80,14 @@ module.exports = {
         let project = await Project.findById(projectId);
         await slackService.removeUserFromChannel(associate.slack.id, project.client_slack_channel.id);
         await slackService.removeUserFromChannel(associate.slack.id, project.project_slack_channel.id);
-        const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, 'Member');
-        await jiraService.removeUserFromProject(project.jira_details.id, projectRole, associate.jira.accountId);
-        await driveService.removePermission(project.google_drive.permissions[associate.id].id, project.google_drive.id);
+        const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, 'Administrator');
+        await jiraService.removeUserFromProject(project.jira_details.id, projectRole, associate.jira.accountId).catch(err => {console.log(err)});;
+        console.log('user id', project.google_drive.permissions[associate.id].id);
+        await driveService.removePermission(project.google_drive.permissions[associate.id].id, project.google_drive.id).catch(err => {console.log(err)});
         let allocationIndex = project.allocations.indexOf(associate);
         if (allocationIndex !== -1) project.allocations.splice(allocationIndex, 1);
+        delete project.google_drive.permissions[associate.id];
+        project.markModified('google_drive');
         await project.save();
     },
 
@@ -97,5 +104,12 @@ module.exports = {
         project.end_date = projectEndDate;
         await project.save();
     },
+
+    setStartDate: async(projectId, projectStartDate) => {
+        let project = await Project.findById(projectId);
+        project.start_date = projectStartDate;
+        await project.save();
+    },
+
     createDriveFolder
 };
