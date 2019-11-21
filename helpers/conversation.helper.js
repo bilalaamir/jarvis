@@ -78,16 +78,6 @@ module.exports = {
                     message: `Okay, ${currentUser.slack.profile.real_name} I have closed all active conversations.`
                 }
             }
-            if(activeConversation.next_task === 'ask_project_owner') {
-                activeConversation.tasks_done.push('ask_project_owner');
-                activeConversation.next_task = 'set_project_owner';
-                await activeConversation.save();
-
-                return {
-                    channel: currentUser.slack.name,
-                    message: `Who is the Project Owner?`
-                }
-            }
 
             if(activeConversation.next_task === 'set_project_owner' && /<@(.*?)>/.test(message)) {
                 const associateId = message.slice(2, -1).toUpperCase();
@@ -95,23 +85,12 @@ module.exports = {
                 await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.PROJECT_OWNER );
 
                 activeConversation.tasks_done.push('set_project_owner');
-                activeConversation.next_task = 'ask_team_manager';
-                await activeConversation.save();
-
-                return {
-                    channel: currentUser.slack.name,
-                    message: `${associate.slack.real_name} is now the project owner!`
-                }
-            }
-
-            if(activeConversation.next_task === 'ask_team_manager') {
-                activeConversation.tasks_done.push('ask_team_manager');
                 activeConversation.next_task = 'set_team_manager';
                 await activeConversation.save();
 
                 return {
                     channel: currentUser.slack.name,
-                    message: `Who is the Team Manager?`
+                    message: `${associate.slack.real_name} is now the project owner! Who is the Team Manager?`
                 }
             }
 
@@ -121,23 +100,12 @@ module.exports = {
                 await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.TEAM_MEMBER );
 
                 activeConversation.tasks_done.push('set_team_manager');
-                activeConversation.next_task = 'ask_start_date';
-                await activeConversation.save();
-
-                return {
-                    channel: currentUser.slack.name,
-                    message: `${associate.slack.real_name} is now the Team Manager!`
-                }
-            }
-
-            if(activeConversation.next_task === 'ask_start_date') {
-                activeConversation.tasks_done.push('ask_start_date');
                 activeConversation.next_task = 'set_start_date';
                 await activeConversation.save();
 
                 return {
                     channel: currentUser.slack.name,
-                    message: `What is the Project Start Date? Please enter date in mm/dd/yyyy format.`
+                    message: `${associate.slack.real_name} is now the Team Manager! What is the Project Start Date? Please enter date in mm/dd/yyyy format.`
                 }
             }
 
@@ -198,14 +166,14 @@ module.exports = {
                     status: 'active',
                     command: 'Start Project',
                     tasks_done: ['start_project'],
-                    next_task: 'ask_project_owner',
+                    next_task: 'set_project_owner',
                     project: project,
                     project_name: projectName
                 };
                 await ConversationController.startConversation(conversation);
                 return {
                     channel: currentUser.slack.name,
-                    message: `Congratulations! ${projectName} has been successfully setup now let's assign people to it.`
+                    message: `Congratulations! ${projectName} has been successfully setup now let's assign people to it. Who is the Project Owner?`
                 }
             }
 
