@@ -47,10 +47,15 @@ module.exports = {
 
     addAssociateToProject: async(projectId, associate, associateRole, role) => {
         let project = await Project.findById(projectId);
+        if(project.allocations.indexOf(associate.id) !== -1){
+            console.log('user already exists');
+            return false;
+        }
         await slackService.addUserToChannel(associate.slack.id, project.client_slack_channel.id);
         await slackService.addUserToChannel(associate.slack.id, project.project_slack_channel.id);
         const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, associateRole);
         await jiraService.addUserToProject(project.jira_details.id, projectRole, associate.jira.key);
+
         //TODO take out of controller and create object inside service
         let permissions = [
             {
@@ -60,6 +65,7 @@ module.exports = {
                 'user': associate.id,
             }
         ];
+
         let projectPermissions = { ...project.google_drive.permissions };
         let googleDrive = await driveService.setPermissions(permissions, project.google_drive.id)
             .then( res => { console.log( 'set drive permissions response: ', res ); return { ...projectPermissions, ...res } })
@@ -68,7 +74,9 @@ module.exports = {
         project.google_drive.permissions = Object.assign(project.google_drive.permissions, googleDrive);
         console.log('project drive permissions', Object.assign(project.google_drive.permissions, googleDrive));
         project.markModified('google_drive');
+
         await project.save();
+        return true;
     },
 
     getProjects: async(status) => {
@@ -78,16 +86,23 @@ module.exports = {
 
     removeAssociateFromProject: async(projectId, associate) => {
         let project = await Project.findById(projectId);
+
         await slackService.removeUserFromChannel(associate.slack.id, project.client_slack_channel.id);
         await slackService.removeUserFromChannel(associate.slack.id, project.project_slack_channel.id);
+
         const projectRole = await jiraService.getProjectRoleId(project.jira_details.id, 'Administrator');
+
         await jiraService.removeUserFromProject(project.jira_details.id, projectRole, associate.jira.accountId).catch(err => {console.log(err)});;
+
         console.log('user id', project.google_drive.permissions[associate.id].id);
         await driveService.removePermission(project.google_drive.permissions[associate.id].id, project.google_drive.id).catch(err => {console.log(err)});
-        let allocationIndex = project.allocations.indexOf(associate);
+
+        let allocationIndex = project.allocations.indexOf(associate.id);
         if (allocationIndex !== -1) project.allocations.splice(allocationIndex, 1);
+
         delete project.google_drive.permissions[associate.id];
         project.markModified('google_drive');
+
         await project.save();
     },
 
@@ -98,7 +113,6 @@ module.exports = {
         await jiraService.updateProject(project.jira_details.id, {name: `${project.project_name}-archived`});
 
         project.status = 'archived';
-        project.project_name = `${project.project_name}-archived`;
         project.client_slack_channel.is_archived = true;
         project.project_slack_channel.is_archived = true;
         project.end_date = projectEndDate;

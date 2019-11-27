@@ -18,7 +18,7 @@ module.exports = {
                 const associate = await UserController.findOrCreateUser(associateId);
                 activeConversation = await activeConversation.populate('projects');
 
-                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Administrator', ASSOCIATE_ROLES.TEAM_MEMBER);
+                const allocation = await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Administrator', ASSOCIATE_ROLES.TEAM_MEMBER);
 
                 activeConversation.status = 'inactive';
                 activeConversation.tasks_done.push('add_associate');
@@ -27,7 +27,7 @@ module.exports = {
 
                 return {
                     channel: currentUser.slack.name,
-                    message: `${associate.slack.profile.real_name} has been added on ${activeConversation.project_name}`
+                    message: allocation ? `${associate.slack.profile.real_name} has been added on ${activeConversation.project_name}` : `${associate.slack.profile.real_name} is already allocated to ${activeConversation.project_name}`
                 }
             }
 
@@ -87,7 +87,6 @@ module.exports = {
                 activeConversation.tasks_done.push('set_project_owner');
                 activeConversation.next_task = 'set_team_manager';
                 await activeConversation.save();
-
                 return {
                     channel: currentUser.slack.name,
                     message: `${associate.slack.real_name} is now the project owner! Who is the Team Manager?`
@@ -121,7 +120,7 @@ module.exports = {
 
                 return {
                     channel: currentUser.slack.name,
-                    message: `${activeConversation.project_name} will begin on ${projectStartDate}.`
+                    message: `${activeConversation.project_name} start date has been set as ${message}.`
                 }
             }
 
@@ -292,6 +291,13 @@ module.exports = {
                     return {
                         channel: currentUser.slack.name,
                         message: `${currentUser.slack.profile.real_name}? Project ${projectName} does not exist!`
+                    }
+                }
+
+                if(project.allocations.length === 0){
+                    return {
+                        channel: currentUser.slack.name,
+                        message: `${currentUser.slack.profile.real_name}? but project ${projectName} does not exist have any allocations!`
                     }
                 }
 
