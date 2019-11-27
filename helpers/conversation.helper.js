@@ -394,6 +394,21 @@ module.exports = {
                 }
             }
 
+            // Command: Help
+            if(message.includes('help')) {
+                let commands = '\n @jarvis Start Project [Project Name] \n' +
+                               '@jarvis Add Associate To Project [Project Name] \n' +
+                               '@jarvis Remove Associate From Project [Project Name] \n' +
+                               '@jarvis Archive Project [Project Name] \n' +
+                               '@jarvis Show Active Projects \n' +
+                               '@jarvis Show Archived Projects \n' +
+                               '@jarvis Show Project Summary [Project Name]';
+                return {
+                    channel: currentUser.slack.name,
+                    message: `${currentUser.slack.profile.real_name} you can use the following commands to interact with me: \n ${commands}`
+                }
+            }
+
             else{
                 const userName = currentUser.slack.profile.real_name;
                 let response = `Sorry ${userName} I don't understand what you are saying?`;
