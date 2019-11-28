@@ -82,7 +82,7 @@ module.exports = {
             if(activeConversation.next_task === 'set_project_owner' && /<@(.*?)>/.test(message)) {
                 const associateId = message.slice(2, -1).toUpperCase();
                 const associate = await UserController.findOrCreateUser(associateId);
-                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.PROJECT_OWNER );
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Administrator', ASSOCIATE_ROLES.PROJECT_OWNER );
 
                 activeConversation.tasks_done.push('set_project_owner');
                 activeConversation.next_task = 'set_team_manager';
@@ -96,7 +96,7 @@ module.exports = {
             if(activeConversation.next_task === 'set_team_manager' && /<@(.*?)>/.test(message)) {
                 const associateId = message.slice(2, -1).toUpperCase();
                 const associate = await UserController.findOrCreateUser(associateId);
-                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Member', ASSOCIATE_ROLES.TEAM_MEMBER );
+                await ProjectController.addAssociateToProject(activeConversation.project, associate, 'Administrator', ASSOCIATE_ROLES.TEAM_MEMBER );
 
                 activeConversation.tasks_done.push('set_team_manager');
                 activeConversation.next_task = 'set_start_date';
